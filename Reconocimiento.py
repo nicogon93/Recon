@@ -1,26 +1,31 @@
+from datetime import datetime
+
 import numpy as np
 import cv2
 import Rect_functions
-from datetime import datetime
+
+# debug constant TODO: fix this thing use __debug__ instead
+debug = False
 
 #DEFINICION DE VARIABLES GLOBALES
 refPt = [] #ARRAY DE PTOS DE REFERENCIA
-seleccionando = False #VARIABLE PARA SABER SI ESTA SELECCIONANDO
-siguiendo=False #VARIABLE PARA SABER SI ESTA SIGUIENDO
+selected = False #VARIABLE PARA SABER SI ESTA SELECCIONANDO
+following=False #VARIABLE PARA SABER SI ESTA SIGUIENDO
 
 #VARIABLES PARA EL CAMSHIFT
 track_window=()
-term_crit=()
+term_criteria=()
 roi_hist=()
 roi=()
-seleccion=()
+selection=()
 frame=()
 porcentaje=0.3
 
 
 def click_on_mouse(event, x, y, flags, param):
+
     # grab references to the global variables
-    global refPt, seleccionando,siguiendo,track_window,term_crit,roi_hist,roi
+    global refPt, selected, following, track_window, term_criteria, roi_hist, roi
 
     # if the left mouse button was clicked, record the starting
     # (x, y) coordinates and indicate that seleccionando is being
@@ -28,58 +33,68 @@ def click_on_mouse(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         refPt = [x]
         refPt.append(y)
-        seleccionando = True
+        selected = True
 
     # check to see if the left mouse button was released
     elif event == cv2.EVENT_LBUTTONUP:
         # record the ending (x, y) coordinates and indicate that
-        # the seleccionando operation is finished
+        # the selection operation is finished
         refPt.append(x)
         refPt.append(y)
-        seleccionando = False
-        siguiendo = True
+        selected = False
+        following = True
+
         # setup initial location of window
-        w=refPt[2]-refPt[0]
-        h=refPt[3]-refPt[1]
-        r=refPt[1]
-        c=refPt[0]
-        track_window = (c,r,w,h)
+        w = refPt[2]-refPt[0]
+        h = refPt[3]-refPt[1]
+        r = refPt[1]
+        c = refPt[0]
+        track_window = (c, r, w, h)
 
         # set up the ROI for tracking
-        roi = seleccion[r:r+h, c:c+w]
+        roi = selection[r:r+h, c:c+w]
         hsv_roi =  cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv_roi, np.array((0.,0.,0.)), np.array((255,255.,255.)))
         roi_hist = cv2.calcHist([hsv_roi],[0],mask,[255],[0,255])
-        (minVal, maxVal,minLoc, maxLoc) = cv2.minMaxLoc(roi_hist)
-        aux=0*roi_hist
-        aux[maxLoc[1]]=1
-        aux[maxLoc[1]+1]=1
-        aux[maxLoc[1]-1]=1
-        aux[maxLoc[1]+2]=1
-        aux[maxLoc[1]-2]=1
-        aux[maxLoc[1]+3]=1
-        aux[maxLoc[1]-3]=1
-        aux[maxLoc[1]+4]=1
-        aux[maxLoc[1]-4]=1
-        roi_hist = aux+0*roi_hist
-        cv2.normalize(roi_hist,roi_hist,0,255,cv2.NORM_MINMAX)
 
-        # Setup the termination criteria, either 10 iteration or move by atleast 1 pt
-        term_crit = ( cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 2, 1000 )
-        cv2.imshow("ROI", roi)
-        #cv2.imwrite("template.jpg",frame[r:r+h, c:c+w])
+        (min_val, max_val,min_loc, max_loc) = cv2.minMaxLoc(roi_hist)
+
+        # after getting the max color location the histogram is reset to 0
+        roi_hist *= 0
+
+        # treshold to determine color variation sensibility
+        threshold = 4
+
+        # setting 1 around the max location creates the color search mask
+        for i in range(0,threshold,1):
+            roi_hist[max_loc[1]+i]
+            roi_hist[max_loc[1]-i]
+
+        cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
+
+        # setup the termination criteria, either 10 iteration or move by atleast 1 pt
+        term_criteria = ( cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 2, 1000 )
+
+        if debug:
+            cv2.imshow("ROI", roi)
+            cv2.imwrite("ROI.jpg", frame[r:r+h, c:c+w])
 
     # draw a rectangle around the region of interest
-    if seleccionando == True:
-        cv2.rectangle(seleccion, (refPt[0],refPt[1]),(x,y), (0, 255, 0), 2)
-        cv2.imshow("ROI", seleccion)
+    if selected:
+        cv2.rectangle(selection, (refPt[0], refPt[1]), (x, y), (0, 255, 0), 2)
+
+        if debug:
+            cv2.imshow("ROI", selection)
 
 
-def buscar_objeto():
-    print("Buscando")
-    global seleccionando,siguiendo,track_window,term_crit,roi_hist,roi
+def buscar_objeto():  # Todo: clean up everything
 
-    #cargo la imagen a analizar
+    global selected,following,track_window,term_criteria,roi_hist,roi
+
+    if debug:
+        print("Searching")
+
+    #load the new frame
     fondo = frame.copy()
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, np.array((0,80.,80.)), np.array((255,255.,255.)))
@@ -158,7 +173,7 @@ def buscar_objeto():
 
     (maxVal, maxLoc,tH,tW) = found
     if maxVal>0.4: #umbral para certeza de deteccion de objeto
-        siguiendo = True
+        following = True
         # setup initial location of window
         w=int(tW)
         h=int(tH)
@@ -187,8 +202,8 @@ while(1):
     ret ,frame = cap.read()
 
     if ret == True:
-        seleccion=frame.copy()
-        if siguiendo==True:
+        selection=frame.copy()
+        if following==True:
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             mask = cv2.inRange(hsv, np.array((0,80.,80.)), np.array((255,255.,255.)))
             dst = cv2.calcBackProject([hsv],[0],roi_hist,[0,255],1)
@@ -201,10 +216,10 @@ while(1):
 
 
             # apply meanshift to get the new location
-            ret, track_window = cv2.CamShift(dst, track_window, term_crit)
+            ret, track_window = cv2.CamShift(dst, track_window, term_criteria)
             #cv2.imshow("BackProjection", dst)
             if (track_window[2]>3*track_window[3])or(track_window[3]>3*track_window[2]):#Limites de desision para dejar de seguir
-                siguiendo=False
+                following=False
 
             # Draw it on image
             pts = cv2.boxPoints(ret)
@@ -221,7 +236,7 @@ while(1):
         elif k==111:
             buscar_objeto()
         elif k==112:
-            siguiendo=False
+            following=False
 
     else:
         break
