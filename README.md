@@ -1,7 +1,7 @@
 # Recon
 Quadcopter pattern recognition software.
 
-The program is written in Python 2.7.
+This program controls an APM 2.6 running a custom version of the ArduCopter 3.1.5 firmware.
 
 # Lib usage:
 
