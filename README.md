@@ -1,2 +1,3 @@
 # Recon
-Image Procesing for pattern recognition 
+Quadcopter pattern recognition software.
+
