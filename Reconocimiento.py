@@ -271,6 +271,7 @@ while 1:
         break
     time = datetime.now() - time
     print round(1/time.total_seconds())
-
+    #wowowo
+    
 cv2.destroyAllWindows()
 cap.release()
