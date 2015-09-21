@@ -11,10 +11,11 @@ debug = False
 refPt = []  # ARRAY DE PTOS DE REFERENCIA
 selected = False  # VARIABLE PARA SABER SI ESTA SELECCIONANDO
 following = False  # VARIABLE PARA SABER SI ESTA SIGUIENDO
+first_lookup = True
+search_loop_time = 0
 
 # VARIABLES PARA EL CAMSHIFT
 track_window = ()
-
 # setup the termination criteria, either 10 iteration or move by atleast 1 pt
 term_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 2, 1000)
 
@@ -26,8 +27,9 @@ percent = 0.3
 
 
 def click_on_mouse(event, x, y, flags, param):
+    #Todo: arreglar lo que se selecciona pal otro lado y la dimension minima
     # grab references to the global variables
-    global refPt, selected, following, track_window, term_criteria, roi_hist, roi
+    global refPt, selected, following, track_window, term_criteria, roi_hist, roi, first_lookup
 
     # if the left mouse button was clicked, record the starting
     # (x, y) coordinates and indicate that seleccionando is being
@@ -45,6 +47,7 @@ def click_on_mouse(event, x, y, flags, param):
         refPt.append(y)
         selected = False
         following = True
+        first_lookup = False
 
         # setup initial location of window
         w = refPt[2] - refPt[0]
@@ -204,8 +207,11 @@ def buscar_objeto():  # Todo: clean up everything
         clone = background.copy()
         cv2.rectangle(clone, (c, r), (c + w, r + h), (0, 0, 255), 2)
         cv2.imshow("Object found", clone)
+        return 1
+
     else:
         print "Object not detected"
+        return 0
 
 
 cv2.namedWindow("TiempoReal")
@@ -239,9 +245,8 @@ while 1:
             ret, track_window = cv2.CamShift(dst, track_window, term_criteria)
             # cv2.imshow("BackProjection", dst)
             if (track_window[2] > 3 * track_window[3]) or (
-                        track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir
+                    track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir
                 following = False
-
             # Draw it on image
             pts = cv2.boxPoints(ret)
             pts = np.int0(pts)
@@ -249,7 +254,10 @@ while 1:
             cv2.imshow('TiempoReal', img2)
         else:
             cv2.imshow('TiempoReal', frame)
-
+            if not first_lookup and (time - search_loop_time).microsecond > 250:
+                print "lookup loop"
+                search_loop_time = datetime.now()
+                buscar_objeto()
         k = cv2.waitKey(1) & 0xff
         if k == 27:
             cv2.imwrite("prueba.jpg", 255 * dst)
@@ -262,7 +270,7 @@ while 1:
     else:
         break
     time = datetime.now() - time
-    # print round(1/time.total_seconds())
+    print round(1/time.total_seconds())
 
 cv2.destroyAllWindows()
 cap.release()
