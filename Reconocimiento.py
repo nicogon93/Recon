@@ -12,7 +12,7 @@ refPt = []  # ARRAY DE PTOS DE REFERENCIA
 selected = False  # VARIABLE PARA SABER SI ESTA SELECCIONANDO
 following = False  # VARIABLE PARA SABER SI ESTA SIGUIENDO
 first_lookup = True
-search_loop_time = 0
+search_loop_time = datetime.now()
 
 # VARIABLES PARA EL CAMSHIFT
 track_window = ()
@@ -137,7 +137,7 @@ def buscar_objeto():  # Todo: clean up everything
 
         roi_offset_x = r[0]
         roi_offset_y = r[1]
-        
+
         # get each region of interest
         roi = background[r[1]:(r[1] + r[3]), r[0]:(r[0] + r[2])]
         (roi_height, roi_width) = roi.shape[:2]
@@ -194,8 +194,10 @@ def buscar_objeto():  # Todo: clean up everything
                 found = (max_val, (max_loc[0] + roi_offset_x, max_loc[1] + roi_offset_y),
                          scaling_template_height, scaling_template_width)
 
+    if found is None:
+        return 0
     (max_val, max_loc, h, w) = found
-
+    print max_val
     if max_val > 0.4:  # umbral para certeza de deteccion de objeto #TODO: fix threshold
         following = True
         # setup initial location of window
@@ -254,13 +256,15 @@ while 1:
             cv2.imshow('TiempoReal', img2)
         else:
             cv2.imshow('TiempoReal', frame)
-            if not first_lookup and (time - search_loop_time).microsecond > 250:
+            aux=time - search_loop_time
+            if not first_lookup and aux.microseconds > 250:
                 print "lookup loop"
                 search_loop_time = datetime.now()
                 buscar_objeto()
+
         k = cv2.waitKey(1) & 0xff
         if k == 27:
-            cv2.imwrite("prueba.jpg", 255 * dst)
+            #cv2.imwrite("prueba.jpg", 255 * dst)
             break
         elif k == 111:
             buscar_objeto()
@@ -270,8 +274,7 @@ while 1:
     else:
         break
     time = datetime.now() - time
-    print round(1/time.total_seconds())
-    #wowowo
-    
+    #print round(1/time.total_seconds())
+
 cv2.destroyAllWindows()
 cap.release()
