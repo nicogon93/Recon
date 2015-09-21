@@ -161,7 +161,7 @@ def buscar_objeto():  # Todo: clean up everything
 
         for scale in np.linspace(0.1, 1.0, 10)[::-1]:  # resize from 0.1 to 1 template
 
-            if scale * first_scale < 0.1: # if the template scale is lower than the 10%, discard that contour
+            if scale * first_scale < 0.1:  # if the template scale is lower than the 10%, discard that contour
                 continue
 
             scaling_template = cv2.resize(scaled_template, (0, 0), fx=scale, fy=scale)
@@ -170,14 +170,9 @@ def buscar_objeto():  # Todo: clean up everything
 
             # r = scaled_roi.shape[1] / scaled_template.shape[1]
 
-            if scaling_template_height >= roi_height or scaling_template_width >= roi_width:
-                print("Dimension error, scaled template is bigger than the roi region")
-                break
-
-            # TODO: esto no deberia ser contra el roi no contra el fondo?
-            # if resized.shape[0] >= background_height or resized.shape[1] >= background_width:
-            #     print("Error en dimensiones")
-            #     break
+            if scaling_template.shape[0] >= background_height or scaling_template.shape[1] >= background_width:
+                 print("Error en dimensiones")
+                 break
 
             # do the template matching
             result = cv2.matchTemplate(roi, scaling_template, cv2.TM_CCOEFF_NORMED)
