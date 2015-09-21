@@ -11,8 +11,9 @@ debug = False
 refPt = []  # ARRAY DE PTOS DE REFERENCIA
 selected = False  # VARIABLE PARA SABER SI ESTA SELECCIONANDO
 following = False  # VARIABLE PARA SABER SI ESTA SIGUIENDO
-first_lookup = True
-search_loop_time = datetime.now()
+first_lookup = True # VARIABLE PARA SABER SI BUSQUE UNA PRIMERA VEZ
+search_loop_time = datetime.now() # VARIABLE PARA SABER CADA CUANTO BUSCAR
+
 
 # VARIABLES PARA EL CAMSHIFT
 track_window = ()
@@ -24,6 +25,9 @@ roi = ()
 selection = ()
 frame = ()
 percent = 0.3
+
+def control_vector(framedim,center,radius):
+    print (center[0]-framedim[1]/2,framedim[0]/2-center[1],radius)
 
 
 def click_on_mouse(event, x, y, flags, param):
@@ -197,7 +201,7 @@ def buscar_objeto():  # Todo: clean up everything
     if found is None:
         return 0
     (max_val, max_loc, h, w) = found
-    print max_val
+    #print max_val
     if max_val > 0.4:  # umbral para certeza de deteccion de objeto #TODO: fix threshold
         following = True
         # setup initial location of window
@@ -250,9 +254,14 @@ while 1:
                     track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir
                 following = False
             # Draw it on image
+            center=(track_window[0]+track_window[2]/2,track_window[1]+track_window[3]/2)
+            radius=max(track_window[2],track_window[3])/2
+            control_vector(frame.shape[:2],center,radius)
             pts = cv2.boxPoints(ret)
             pts = np.int0(pts)
             img2 = cv2.polylines(frame, [pts], True, 255, 2)
+            cv2.circle(img2, center, radius, (0,0,255), thickness=1, lineType=8, shift=0)
+            cv2.line(img2,(frame.shape[:2][1]/2,frame.shape[:2][0]/2),center, (0,255,0), thickness=2, lineType=8, shift=0)
             cv2.imshow('TiempoReal', img2)
         else:
             cv2.imshow('TiempoReal', frame)
