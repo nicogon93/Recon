@@ -1,8 +1,10 @@
 from datetime import datetime
-
+import zmq
+import time
 import numpy as np
 import cv2
 import Rect_functions
+
 
 # debug constant TODO: fix this thing use __debug__ instead
 debug = False
@@ -11,8 +13,8 @@ debug = False
 refPt = []  # ARRAY DE PTOS DE REFERENCIA
 selected = False  # VARIABLE PARA SABER SI ESTA SELECCIONANDO
 following = False  # VARIABLE PARA SABER SI ESTA SIGUIENDO
-first_lookup = True # VARIABLE PARA SABER SI BUSQUE UNA PRIMERA VEZ
-search_loop_time = datetime.now() # VARIABLE PARA SABER CADA CUANTO BUSCAR
+first_lookup = True  # VARIABLE PARA SABER SI BUSQUE UNA PRIMERA VEZ
+search_loop_time = datetime.now()  # VARIABLE PARA SABER CADA CUANTO BUSCAR
 
 
 # VARIABLES PARA EL CAMSHIFT
@@ -20,18 +22,37 @@ track_window = ()
 # setup the termination criteria, either 10 iteration or move by atleast 1 pt
 term_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 2, 1000)
 
+# Cosas para la interconexion
+connected = False
+context = zmq.Context()
+socket = context.socket(zmq.PAIR)  # create a bidirectional socket
+port = "6001"  # connection port
+socket.send
+
+# otras variables
 roi_hist = ()
 roi = ()
 selection = ()
 frame = ()
 percent = 0.3
 
+
 def control_vector(framedim,center,radius):
-    print (center[0]-framedim[1]/2,framedim[0]/2-center[1],radius)
+    global socket, connected
+    vector = (center[0]-framedim[1]/2, framedim[0]/2-center[1], radius, datetime.now().total_seconds())
+
+    if connected: # send msg here
+        socket.send(vector)
+
+    else:
+        print "Unable to send control vector:\n"
+        print vector
+
+    # send to control process (x, y, radio, timestamp)
 
 
 def click_on_mouse(event, x, y, flags, param):
-    #Todo: arreglar lo que se selecciona pal otro lado y la dimension minima
+
     # grab references to the global variables
     global refPt, selected, following, track_window, term_criteria, roi_hist, roi, first_lookup
 
@@ -45,19 +66,32 @@ def click_on_mouse(event, x, y, flags, param):
 
     # check to see if the left mouse button was released
     elif event == cv2.EVENT_LBUTTONUP:
+
         # record the ending (x, y) coordinates and indicate that
         # the selection operation is finished
+
         refPt.append(x)
         refPt.append(y)
+
         selected = False
         following = True
         first_lookup = False
 
         # setup initial location of window
-        w = refPt[2] - refPt[0]
-        h = refPt[3] - refPt[1]
-        r = refPt[1]
-        c = refPt[0]
+
+        w = abs(refPt[2] - refPt[0])
+        h = abs(refPt[3] - refPt[1])
+
+        if refPt[0] < refPt[2]:
+            c = refPt[0]
+        else:
+            c = refPt[2]
+
+        if refPt[1] < refPt[3]:
+            r = refPt[1]
+        else:
+            r = refPt[3]
+
         track_window = (c, r, w, h)
 
         # set up the ROI for tracking
@@ -90,12 +124,11 @@ def click_on_mouse(event, x, y, flags, param):
         cv2.imshow("ROI", selection)
 
 
-def buscar_objeto():  # Todo: clean up everything
+def search_object():
 
     global selected, following, track_window, term_criteria, roi_hist, roi
 
     print("Searching")
-
     # load the new frame
     background = frame.copy()
 
@@ -131,7 +164,7 @@ def buscar_objeto():  # Todo: clean up everything
     background = cv2.cvtColor(background, cv2.CV_8U)
     (background_height, background_width) = background.shape[:2]
 
-    # cargo el template
+    # load the template file
     template = cv2.imread("template.jpg")
     template = cv2.cvtColor(template, cv2.CV_8U)
     (template_height_0, template_width_0) = template.shape[:2]
@@ -202,6 +235,7 @@ def buscar_objeto():  # Todo: clean up everything
         return 0
     (max_val, max_loc, h, w) = found
     #print max_val
+
     if max_val > 0.4:  # umbral para certeza de deteccion de objeto #TODO: fix threshold
         following = True
         # setup initial location of window
@@ -219,22 +253,34 @@ def buscar_objeto():  # Todo: clean up everything
         print "Object not detected"
         return 0
 
+# init socket, Recon will act as the server so it should be initialized first
+# ////////////////////////////////////////////////////////////////////// #
+try:  # bind the socket to localhost:port
+    socket.bind("tcp://*:%s" % port)
+    connected = True
+except zmq.error.ZMQError:
+    print "Unable to establish socket"
+    connected = False
+# ////////////////////////////////////////////////////////////////////// #
+try:
+    cap = cv2.VideoCapture(0)
+except cv2.error as e:
+    print "No video input detected"
+    exit()  # if video capture is unavailable exit tracking program
 
 cv2.namedWindow("TiempoReal")
 cv2.setMouseCallback("TiempoReal", click_on_mouse)
 
-cap = cv2.VideoCapture(0)
-
 # take first frame of the video
-ret, frame = cap.read()
+#  ret, frame = cap.read() # por que hay un read frame aca?
 
 while 1:
     time = datetime.now()
-    ret, frame = cap.read()
+    ret, frame = cap.read() # <- en la primera iteracion ya se hace el read
 
-    if ret == True:
+    if ret:
         selection = frame.copy()
-        if following == True:
+        if following:
 
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             mask = cv2.inRange(hsv, np.array((0, 80., 80.)), np.array((255, 255., 255.)))
@@ -246,7 +292,6 @@ while 1:
             dst = cv2.dilate(dst, kernel, iterations=9)
             cv2.imshow('TOTAL', 255 * dst)
 
-
             # apply meanshift to get the new location
             ret, track_window = cv2.CamShift(dst, track_window, term_criteria)
             # cv2.imshow("BackProjection", dst)
@@ -254,9 +299,11 @@ while 1:
                     track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir
                 following = False
             # Draw it on image
-            center=(track_window[0]+track_window[2]/2,track_window[1]+track_window[3]/2)
-            radius=max(track_window[2],track_window[3])/2
+            center = (track_window[0]+track_window[2]/2,track_window[1]+track_window[3]/2)
+            radius = max(track_window[2],track_window[3])/2
+
             control_vector(frame.shape[:2],center,radius)
+
             pts = cv2.boxPoints(ret)
             pts = np.int0(pts)
             img2 = cv2.polylines(frame, [pts], True, 255, 2)
@@ -269,14 +316,14 @@ while 1:
             if not first_lookup and aux.microseconds > 250:
                 print "lookup loop"
                 search_loop_time = datetime.now()
-                buscar_objeto()
+                search_object()
 
         k = cv2.waitKey(1) & 0xff
         if k == 27:
-            #cv2.imwrite("prueba.jpg", 255 * dst)
+            # cv2.imwrite("prueba.jpg", 255 * dst)
             break
         elif k == 111:
-            buscar_objeto()
+            search_object()
         elif k == 112:
             following = False
 
@@ -284,6 +331,10 @@ while 1:
         break
     time = datetime.now() - time
     #print round(1/time.total_seconds())
+
+# On exit stuff
+if connected:
+    socket.close()
 
 cv2.destroyAllWindows()
 cap.release()
