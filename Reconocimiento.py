@@ -26,8 +26,7 @@ term_criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 2, 1000)
 connected = False
 context = zmq.Context()
 socket = context.socket(zmq.PAIR)  # create a bidirectional socket
-port = "6001"  # connection port
-socket.send
+port = "6002"  # connection port
 
 # otras variables
 roi_hist = ()
@@ -39,10 +38,10 @@ percent = 0.3
 
 def control_vector(framedim,center,radius):
     global socket, connected
-    vector = (center[0]-framedim[1]/2, framedim[0]/2-center[1], radius, datetime.now().total_seconds())
+    vector = (center[0]-framedim[1]/2, framedim[0]/2-center[1], radius, time.time())
 
     if connected: # send msg here
-        socket.send(vector)
+        socket.send_pyobj(vector)
 
     else:
         print "Unable to send control vector:\n"
@@ -256,6 +255,7 @@ def search_object():
 # init socket, Recon will act as the server so it should be initialized first
 # ////////////////////////////////////////////////////////////////////// #
 try:  # bind the socket to localhost:port
+    print "RECON: creating socket"
     socket.bind("tcp://*:%s" % port)
     connected = True
 except zmq.error.ZMQError:
@@ -276,7 +276,7 @@ cv2.setMouseCallback("TiempoReal", click_on_mouse)
 
 while 1:
     time = datetime.now()
-    ret, frame = cap.read() # <- en la primera iteracion ya se hace el read
+    ret, frame = cap.read()  # <- en la primera iteracion ya se hace el read
 
     if ret:
         selection = frame.copy()
@@ -312,7 +312,7 @@ while 1:
             cv2.imshow('TiempoReal', img2)
         else:
             cv2.imshow('TiempoReal', frame)
-            aux=time - search_loop_time
+            aux = time - search_loop_time
             if not first_lookup and aux.microseconds > 250:
                 print "lookup loop"
                 search_loop_time = datetime.now()
@@ -330,6 +330,7 @@ while 1:
     else:
         break
     time = datetime.now() - time
+
     #print round(1/time.total_seconds())
 
 # On exit stuff
