@@ -143,7 +143,7 @@ def search_object():
     # do a lot of iterations to eliminate tiny contours
     _dst = cv2.dilate(_dst, _kernel, iterations=20)  # Todo: magic number why 20?
 
-    imi, contours, hier = cv2.findContours(_dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(_dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     list_rec = []  # lists the rectangles that surround a contour
 
@@ -304,9 +304,7 @@ while 1:
 
             control_vector(frame.shape[:2],center,radius)
 
-            pts = cv2.boxPoints(ret2)
-            pts = np.int0(pts)
-            img2 = cv2.polylines(frame, [pts], True, 255, 2)
+            img2 = frame.copy()
             cv2.circle(img2, center, radius, (0,0,255), thickness=1, lineType=8, shift=0)
             cv2.line(img2,(frame.shape[:2][1]/2,frame.shape[:2][0]/2),center, (0,255,0), thickness=2, lineType=8, shift=0)
             cv2.imshow('TiempoReal', img2)
