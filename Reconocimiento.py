@@ -41,6 +41,8 @@ def control_vector(framedim,center,radius):
     vector = (center[0]-framedim[1]/2, framedim[0]/2-center[1], radius, time.time())
 
     if connected: # send msg here
+        print "Sending vector:\n"
+        print vector
         socket.send_pyobj(vector)
 
     else:
@@ -257,6 +259,7 @@ def search_object():
 try:  # bind the socket to localhost:port
     print "RECON: creating socket"
     socket.bind("tcp://*:%s" % port)
+    print "RECON: socket established "
     connected = True
 except zmq.error.ZMQError:
     print "Unable to establish socket"
@@ -271,12 +274,9 @@ except cv2.error as e:
 cv2.namedWindow("TiempoReal")
 cv2.setMouseCallback("TiempoReal", click_on_mouse)
 
-# take first frame of the video
-#  ret, frame = cap.read() # por que hay un read frame aca?
-
 while 1:
     time = datetime.now()
-    ret, frame = cap.read()  # <- en la primera iteracion ya se hace el read
+    ret, frame = cap.read()
 
     if ret:
         selection = frame.copy()
@@ -293,7 +293,7 @@ while 1:
             cv2.imshow('TOTAL', 255 * dst)
 
             # apply meanshift to get the new location
-            ret, track_window = cv2.CamShift(dst, track_window, term_criteria)
+            ret2, track_window = cv2.CamShift(dst, track_window, term_criteria)
             # cv2.imshow("BackProjection", dst)
             if (track_window[2] > 3 * track_window[3]) or (
                     track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir
@@ -304,7 +304,7 @@ while 1:
 
             control_vector(frame.shape[:2],center,radius)
 
-            pts = cv2.boxPoints(ret)
+            pts = cv2.boxPoints(ret2)
             pts = np.int0(pts)
             img2 = cv2.polylines(frame, [pts], True, 255, 2)
             cv2.circle(img2, center, radius, (0,0,255), thickness=1, lineType=8, shift=0)

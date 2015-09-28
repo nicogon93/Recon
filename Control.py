@@ -2,6 +2,7 @@ import zmq
 import time
 
 port = "6002"
+vector=0
 context = zmq.Context()
 socket = context.socket(zmq.PAIR)
 socket.connect("tcp://localhost:%s" % port)
@@ -26,8 +27,8 @@ while True:
 
     available = True  # reset loop for next iteration
 
+    print "----------------Vector recibido----------------\n"
     print vector
-
     time.sleep(2)
 
 # cleanup before exit
