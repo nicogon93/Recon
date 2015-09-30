@@ -33,6 +33,7 @@ roi_hist = ()
 roi = ()
 selection = ()
 frame = ()
+(frame_height, frame_width) = (0,0)
 percent = 0.3
 
 
@@ -275,6 +276,9 @@ except cv2.error as e:
 cv2.namedWindow("TiempoReal")
 cv2.setMouseCallback("TiempoReal", click_on_mouse)
 
+ret, frame = cap.read()
+(frame_height, frame_width) = frame.shape[:2]
+
 while 1:
     time = datetime.now()
     ret, frame = cap.read()
@@ -296,18 +300,19 @@ while 1:
             # apply meanshift to get the new location
             ret2, track_window = cv2.CamShift(dst, track_window, term_criteria)
             # cv2.imshow("BackProjection", dst)
-            if (track_window[2] > 3 * track_window[3]) or (
-                    track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir
+            if (track_window[2] > 3 * track_window[3]) or (track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir
                 following = False
+                print "\nDesproporcion\n"
+            if (track_window[2] > 0.75*frame_width) or (track_window[3] > 0.75*frame_height):  # Limites de desision para dejar de seguir
+                following = False
+                print "\nConvergencia\n"
             # Draw it on image
             center = (track_window[0]+track_window[2]/2,track_window[1]+track_window[3]/2)
             radius = max(track_window[2],track_window[3])/2
 
             control_vector(frame.shape[:2],center,radius)
 
-            pts = cv2.boxPoints(ret2)
-            pts = np.int0(pts)
-            img2 = cv2.polylines(frame, [pts], True, 255, 2)
+            img2=frame.copy()
             cv2.circle(img2, center, radius, (0,0,255), thickness=1, lineType=8, shift=0)
             cv2.line(img2,(frame.shape[:2][1]/2,frame.shape[:2][0]/2),center, (0,255,0), thickness=2, lineType=8, shift=0)
             cv2.imshow('TiempoReal', img2)
