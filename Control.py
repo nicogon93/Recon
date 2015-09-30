@@ -1,6 +1,8 @@
 import zmq
 import time
 
+debug=False
+
 port = "6002"
 vector=0
 context = zmq.Context()
@@ -27,8 +29,9 @@ while True:
 
     available = True  # reset loop for next iteration
 
-    print "----------------Vector recibido----------------\n"
-    print vector
+    if debug:
+        print "----------------Vector recibido----------------\n"
+        print vector
     time.sleep(2)
 
 # cleanup before exit

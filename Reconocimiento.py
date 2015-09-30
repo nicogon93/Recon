@@ -33,6 +33,7 @@ roi_hist = ()
 roi = ()
 selection = ()
 frame = ()
+(frame_height,frame_width)=(0,0)
 percent = 0.3
 
 
@@ -41,8 +42,9 @@ def control_vector(framedim,center,radius):
     vector = (center[0]-framedim[1]/2, framedim[0]/2-center[1], radius, time.time())
 
     if connected: # send msg here
-        print "Sending vector:\n"
-        print vector
+        if debug:
+            print "Sending vector:\n"
+            print vector
         socket.send_pyobj(vector)
 
     else:
@@ -143,7 +145,7 @@ def search_object():
     # do a lot of iterations to eliminate tiny contours
     _dst = cv2.dilate(_dst, _kernel, iterations=20)  # Todo: magic number why 20?
 
-    imi, contours, hier = cv2.findContours(_dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    imi, contours, hierarchy = cv2.findContours(_dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     list_rec = []  # lists the rectangles that surround a contour
 
@@ -273,6 +275,8 @@ except cv2.error as e:
 
 cv2.namedWindow("TiempoReal")
 cv2.setMouseCallback("TiempoReal", click_on_mouse)
+ret, frame = cap.read()
+(frame_height,frame_width)=frame.shape[:2]
 
 while 1:
     time = datetime.now()
@@ -295,18 +299,24 @@ while 1:
             # apply meanshift to get the new location
             ret2, track_window = cv2.CamShift(dst, track_window, term_criteria)
             # cv2.imshow("BackProjection", dst)
-            if (track_window[2] > 3 * track_window[3]) or (
-                    track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir
+            if (track_window[2] > 3 * track_window[3]) or (track_window[3] > 3 * track_window[2]):  # Limites de desision para dejar de seguir por desproporcion
                 following = False
+                print "Desproporcion"
+            if (track_window[2] > frame_width*0.75)or (track_window[3] > frame_height*0.75):  # Limites de desision para dejar de seguir por mala convergencia
+                following = False
+                print "convergencia"
             # Draw it on image
             center = (track_window[0]+track_window[2]/2,track_window[1]+track_window[3]/2)
             radius = max(track_window[2],track_window[3])/2
 
             control_vector(frame.shape[:2],center,radius)
 
+            #img2 = frame.copy()
             pts = cv2.boxPoints(ret2)
             pts = np.int0(pts)
             img2 = cv2.polylines(frame, [pts], True, 255, 2)
+            cv2.imshow('TiempoReal', img2)
+
             cv2.circle(img2, center, radius, (0,0,255), thickness=1, lineType=8, shift=0)
             cv2.line(img2,(frame.shape[:2][1]/2,frame.shape[:2][0]/2),center, (0,255,0), thickness=2, lineType=8, shift=0)
             cv2.imshow('TiempoReal', img2)
