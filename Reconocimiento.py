@@ -41,8 +41,9 @@ def control_vector(framedim,center,radius):
     vector = (center[0]-framedim[1]/2, framedim[0]/2-center[1], radius, time.time())
 
     if connected: # send msg here
-        print "Sending vector:\n"
-        print vector
+        if debug:
+            print "Sending vector:\n"
+            print vector
         socket.send_pyobj(vector)
 
     else:
@@ -304,12 +305,9 @@ while 1:
 
             control_vector(frame.shape[:2],center,radius)
 
-            #img2 = frame.copy()
             pts = cv2.boxPoints(ret2)
             pts = np.int0(pts)
             img2 = cv2.polylines(frame, [pts], True, 255, 2)
-            cv2.imshow('TiempoReal', img2)
-
             cv2.circle(img2, center, radius, (0,0,255), thickness=1, lineType=8, shift=0)
             cv2.line(img2,(frame.shape[:2][1]/2,frame.shape[:2][0]/2),center, (0,255,0), thickness=2, lineType=8, shift=0)
             cv2.imshow('TiempoReal', img2)
